@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VIS-BALI QR Scanner</title>
+    <!-- Library QR Scanner -->
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
+    <style>
+        body { margin:0; background:#0f172a; color:white; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; overflow:hidden; }
+        #video { width: 85%; max-width: 400px; border-radius: 20px; border: 4px solid #6366f1; background: black; }
+        .info { margin-top: 20px; text-align: center; }
+        .btn-retry { margin-top: 15px; padding: 12px 24px; background: #6366f1; border: none; color: white; border-radius: 10px; cursor: pointer; font-weight: bold; }
+        #status { font-size: 1.2rem; margin-bottom: 5px; }
+        #detail { color: #94a3b8; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <video id="video"></video>
+    <div class="info">
+        <h2 id="status">Menyiapkan Kamera...</h2>
+        <p id="detail">Arahkan QR Code Siswa ke kotak kamera</p>
+        <button class="btn-retry" onclick="location.reload()">Reset Kamera</button>
+    </div>
+
+    <script>
+        const codeReader = new ZXing.BrowserQRCodeReader();
+        const statusEl = document.getElementById('status');
+
+        // Memulai Kamera
+        codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
+            if (result) {
+                console.log("Terdeteksi: " + result.text);
+                statusEl.innerText = "QR Terdeteksi!";
+                statusEl.style.color = "#4ade80";
+
+                // MENGIRIM DATA KE APLIKASI UTAMA (Google Apps Script)
+                if (window.opener) {
+                    window.opener.postMessage({
+                        type: 'QR_SCAN_RESULT',
+                        nisn: result.text,
+                        ts: Date.now()
+                    }, "*"); 
+                }
+
+                // Beri jeda 2 detik agar tidak terscan berulang-ulang dengan cepat
+                setTimeout(() => {
+                    statusEl.innerText = "Scanning...";
+                    statusEl.style.color = "white";
+                }, 2000);
+            }
+        });
+    </script>
+</body>
+</html>
