@@ -3,53 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VIS-BALI QR Scanner</title>
-    <!-- Library QR Scanner -->
+    <title>VIS-BALI Scanner</title>
     <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
     <style>
-        body { margin:0; background:#0f172a; color:white; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; overflow:hidden; }
-        #video { width: 85%; max-width: 400px; border-radius: 20px; border: 4px solid #6366f1; background: black; }
-        .info { margin-top: 20px; text-align: center; }
-        .btn-retry { margin-top: 15px; padding: 12px 24px; background: #6366f1; border: none; color: white; border-radius: 10px; cursor: pointer; font-weight: bold; }
-        #status { font-size: 1.2rem; margin-bottom: 5px; }
-        #detail { color: #94a3b8; font-size: 0.9rem; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        #video { width: 90%; max-width: 400px; border-radius: 24px; border: 4px solid #6366f1; background: #000; object-fit: cover; }
+        .container { text-align: center; width: 100%; padding: 20px; }
+        h2 { margin: 10px 0; font-size: 1.2rem; letter-spacing: 1px; }
+        .status-box { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 15px; margin: 15px auto; width: 90%; max-width: 400px; }
+        #status { font-weight: bold; color: #94a3b8; }
+        .line { height: 2px; width: 80%; background: #6366f1; margin: 10px auto; box-shadow: 0 0 10px #6366f1; animation: scan 2s infinite; }
+        @keyframes scan { 0% { transform: translateY(0); } 50% { transform: translateY(10px); } 100% { transform: translateY(0); } }
+        button { padding: 12px 24px; background: #1e293b; border: 1px solid #334155; color: white; border-radius: 12px; cursor: pointer; font-weight: bold; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <video id="video"></video>
-    <div class="info">
-        <h2 id="status">Menyiapkan Kamera...</h2>
-        <p id="detail">Arahkan QR Code Siswa ke kotak kamera</p>
-        <button class="btn-retry" onclick="location.reload()">Reset Kamera</button>
+    <div class="container">
+        <video id="video"></video>
+        <div class="line"></div>
+        <div class="status-box">
+            <div id="status">Menyiapkan Kamera...</div>
+            <div id="student-name" style="font-size: 1.1rem; margin-top: 5px; color: #4ade80;"></div>
+        </div>
+        <button onclick="location.reload()">🔄 Reset Kamera</button>
     </div>
 
     <script>
         const codeReader = new ZXing.BrowserQRCodeReader();
         const statusEl = document.getElementById('status');
+        const nameEl = document.getElementById('student-name');
+        let isProcessing = false;
 
-        // Memulai Kamera
+        // 1. Mulai Kamera
         codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
-            if (result) {
-                console.log("Terdeteksi: " + result.text);
+            if (result && !isProcessing) {
+                isProcessing = true; // Kunci agar tidak scan berkali-kali
                 statusEl.innerText = "QR Terdeteksi!";
-                statusEl.style.color = "#4ade80";
-
-                // MENGIRIM DATA KE APLIKASI UTAMA (Google Apps Script)
+                statusEl.style.color = "#fbbf24";
+                
+                // Kirim data ke Apps Script
                 if (window.opener) {
                     window.opener.postMessage({
                         type: 'QR_SCAN_RESULT',
                         nisn: result.text,
                         ts: Date.now()
-                    }, "*"); 
+                    }, "*");
                 }
+                
+                // Unlock setelah 3 detik untuk scan berikutnya
+                setTimeout(() => { isProcessing = false; }, 3000);
+            }
+        });
 
-                // Beri jeda 2 detik agar tidak terscan berulang-ulang dengan cepat
+        // 2. Terima Feedback dari Apps Script
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'SCAN_FEEDBACK') {
+                playBeep();
+                statusEl.innerText = "BERHASIL!";
+                statusEl.style.color = "#4ade80";
+                nameEl.innerText = event.data.message;
+                
                 setTimeout(() => {
-                    statusEl.innerText = "Scanning...";
-                    statusEl.style.color = "white";
+                    statusEl.innerText = "Siap Scan Berikutnya...";
+                    statusEl.style.color = "#94a3b8";
+                    nameEl.innerText = "";
                 }, 2000);
             }
         });
+
+        function playBeep() {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            osc.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.1);
+        }
     </script>
 </body>
 </html>
