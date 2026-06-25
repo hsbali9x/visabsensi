@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner Absensi - VIS-BALI</title>
-    <!-- Library ZXing untuk Scan QR -->
+    <!-- Library ZXing Terbaru -->
     <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
     <style>
         :root {
@@ -21,7 +21,6 @@
             height: 100vh; overflow: hidden; 
         }
 
-        /* Video Container */
         .scanner-container {
             position: relative; width: 100%; flex: 1;
             display: flex; align-items: center; justify-content: center;
@@ -29,11 +28,11 @@
         }
         #video { width: 100%; height: 100%; object-fit: cover; }
 
-        /* Overlay Garis Scan */
         .overlay {
             position: absolute; inset: 0;
-            border: 2px solid transparent; transition: all 0.3s;
+            border: 0px solid transparent; transition: all 0.3s;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
+            pointer-events: none;
         }
         .scan-box {
             width: 260px; height: 260px; border: 2px solid rgba(255,255,255,0.3);
@@ -48,24 +47,21 @@
             0% { top: 0; } 50% { top: 100%; } 100% { top: 0; }
         }
 
-        /* Feedback Flash */
-        .flash-success { border: 10px solid var(--success) !important; background: rgba(16, 185, 129, 0.1); }
-        .flash-error { border: 10px solid var(--error) !important; background: rgba(239, 68, 68, 0.1); }
+        .flash-success { background: rgba(16, 185, 129, 0.2); box-shadow: inset 0 0 50px var(--success); }
+        .flash-error { background: rgba(239, 68, 68, 0.2); box-shadow: inset 0 0 50px var(--error); }
 
-        /* Status UI */
         .ui-panel {
             width: 100%; background: #1e293b; padding: 20px;
             border-radius: 25px 25px 0 0; text-align: center;
             box-shadow: 0 -5px 20px rgba(0,0,0,0.5); z-index: 10;
         }
-        h2 { margin: 0 0 10px 0; font-size: 1.1rem; color: #cbd5e1; }
         #status { font-weight: bold; font-size: 1.2rem; color: var(--primary); margin-bottom: 5px; }
-        #detail { font-size: 0.9rem; color: #94a3b8; height: 1.2rem; }
+        #detail { font-size: 0.9rem; color: #94a3b8; min-height: 1.2rem; }
 
         .btn-group { display: flex; gap: 10px; margin-top: 15px; width: 100%; }
         button { 
             flex: 1; padding: 12px; border-radius: 12px; border: none; 
-            font-weight: bold; cursor: pointer; font-size: 0.9rem;
+            font-weight: bold; cursor: pointer; font-size: 0.8rem;
             background: #334155; color: white; transition: 0.2s;
         }
         button.primary { background: var(--primary); }
@@ -84,11 +80,11 @@
     </div>
 
     <div class="ui-panel">
-        <div id="status">Mencari Kamera...</div>
-        <div id="detail">Arahkan ke QR Code Siswa</div>
+        <div id="status">Menginisialisasi...</div>
+        <div id="detail">Mohon tunggu sebentar</div>
         
         <div class="btn-group">
-            <button onclick="toggleCamera()">🔄 Ganti Kamera</button>
+            <button onclick="switchCamera()">🔄 Ganti Kamera</button>
             <button onclick="location.reload()">Reset</button>
             <button class="primary" onclick="window.close()">Tutup</button>
         </div>
@@ -100,116 +96,131 @@
         const detailEl = document.getElementById('detail');
         const overlay = document.getElementById('overlay');
         
-        let selectedDeviceId;
+        let videoDevices = [];
+        let currentDeviceIndex = 0;
         let isProcessing = false;
 
-        // 1. Inisialisasi Kamera
         async function initCamera() {
             try {
-                const videoDevices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-                if (videoDevices.length === 0) throw "Kamera tidak ditemukan";
+                // PERBAIKAN: Cara memanggil list devices yang benar
+                videoDevices = await codeReader.listVideoInputDevices();
                 
-                // Pilih kamera belakang secara default
-                selectedDeviceId = videoDevices.length > 1 ? videoDevices[1].deviceId : videoDevices[0].deviceId;
+                if (videoDevices.length === 0) {
+                    throw "Kamera tidak ditemukan";
+                }
+
+                // Pilih kamera belakang secara default (biasanya index terakhir di HP)
+                currentDeviceIndex = videoDevices.length > 1 ? 1 : 0;
                 startScanning();
             } catch (err) {
-                statusEl.innerText = "Error";
+                console.error(err);
+                statusEl.innerText = "Error Kamera";
+                statusEl.style.color = "var(--error)";
                 detailEl.innerText = err;
             }
         }
 
         function startScanning() {
+            const selectedDeviceId = videoDevices[currentDeviceIndex].deviceId;
+            
             codeReader.decodeFromVideoDevice(selectedDeviceId, 'video', (result, err) => {
                 if (result && !isProcessing) {
-                    processResult(result.text);
+                    handleDetectedQR(result.text);
                 }
             });
-            statusEl.innerText = "Siap Scan";
+            statusEl.innerText = "Siap Memindai";
+            detailEl.innerText = "Arahkan ke QR Code Siswa";
         }
 
-        // 2. Kirim ke Parent (Google Apps Script)
-        function processResult(nisn) {
+        function handleDetectedQR(nisn) {
             isProcessing = true;
             statusEl.innerText = "QR Terdeteksi";
             statusEl.style.color = "var(--warning)";
+            detailEl.innerText = "Mengirim data ke dashboard...";
             
+            // Kirim data ke Aplikasi Utama (Google Apps Script)
             if (window.opener) {
                 window.opener.postMessage({
-                    type: 'QR_SCAN_RESULT',
+                    type: 'QR_SCAN_RESULT', // Main Scanner
+                    // Juga kirim tipe DH untuk kompatibilitas halaman Daftar Hadir Guru
                     nisn: nisn.trim(),
                     ts: Date.now()
                 }, "*");
+                
+                // Tambahan postMessage untuk halaman Daftar Hadir/Jemput
+                window.opener.postMessage({
+                    type: 'DH_QR_SCAN_RESULT', 
+                    nisn: nisn.trim(),
+                    ts: Date.now()
+                }, "*");
+
             } else {
-                alert("Koneksi ke Dashboard terputus. Silakan buka ulang scanner.");
+                alert("Dashboard tidak terdeteksi. Harap buka melalui aplikasi.");
             }
 
-            // Timeout keamanan jika tidak ada respon dari Apps Script dalam 5 detik
-            setTimeout(() => { isProcessing = false; }, 5000);
+            // Lock scanner selama 3 detik untuk mencegah scan ganda sebelum respon
+            setTimeout(() => { isProcessing = false; }, 3000);
         }
 
-        // 3. Terima Feedback dari Parent
+        // Listener untuk menerima feedback (berhasil/gagal) dari Apps Script
         window.addEventListener('message', (event) => {
-            // Kita terima data seperti: {type: 'SCAN_SUCCESS', nama: 'Budi', message: 'Hadir'}
             const data = event.data;
-            isProcessing = false; // Buka kunci scan
-
-            if (data.type === 'SCAN_SUCCESS' || data.type === 'SCAN_DUPLICATE') {
-                showFeedback(data.type === 'SCAN_SUCCESS' ? 'success' : 'error', data.nama, data.message || '');
-            } else if (data.type === 'SCAN_ERROR') {
-                showFeedback('error', 'Gagal', data.message || 'Siswa tidak ditemukan');
+            
+            // Cek tipe pesan feedback
+            if (data.type === 'SCAN_SUCCESS' || data.type === 'DH_SCAN_SUCCESS') {
+                showFeedback('success', data.nama || 'Berhasil', data.message || 'Data tersimpan');
+            } else if (data.type === 'SCAN_ERROR' || data.type === 'DH_SCAN_ERROR' || data.type === 'SCAN_DUPLICATE') {
+                showFeedback('error', 'Ditolak', data.message || 'Gagal memproses');
             }
         });
 
         function showFeedback(type, title, message) {
+            isProcessing = true; // Kunci sementara
             playBeep(type);
             
-            // UI Feedback
             statusEl.innerText = title;
             statusEl.style.color = type === 'success' ? 'var(--success)' : 'var(--error)';
             detailEl.innerText = message;
             
-            // Visual Flash
             overlay.classList.add(type === 'success' ? 'flash-success' : 'flash-error');
             
             setTimeout(() => {
                 overlay.className = 'overlay';
-                statusEl.innerText = "Siap Scan Berikutnya";
+                statusEl.innerText = "Siap Memindai";
                 statusEl.style.color = "var(--primary)";
                 detailEl.innerText = "Arahkan ke QR Code Siswa";
+                isProcessing = false; // Buka kunci
             }, 2500);
         }
 
         function playBeep(type) {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(type === 'success' ? 880 : 220, ctx.currentTime);
-            
-            gain.gain.setValueAtTime(0.1, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-            
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            
-            osc.start();
-            osc.stop(ctx.currentTime + 0.2);
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(type === 'success' ? 880 : 220, ctx.currentTime);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.2);
+            } catch(e) {}
         }
 
-        async function toggleCamera() {
-            const videoDevices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+        async function switchCamera() {
             if (videoDevices.length > 1) {
-                // Cari device id yang sedang tidak digunakan
-                const newDevice = videoDevices.find(d => d.deviceId !== selectedDeviceId);
-                selectedDeviceId = newDevice.deviceId;
+                currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
                 codeReader.reset();
                 startScanning();
+            } else {
+                alert("Hanya ada satu kamera tersedia.");
             }
         }
 
-        // Jalankan saat load
-        initCamera();
+        // Jalankan inisialisasi
+        document.addEventListener('DOMContentLoaded', initCamera);
     </script>
 </body>
 </html>
