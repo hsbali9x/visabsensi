@@ -4,89 +4,162 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner Absensi - VIS-BALI</title>
-    <!-- Library ZXing Terbaru -->
+    <!-- Library ZXing -->
     <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
     <style>
         :root {
             --primary: #6366f1;
             --success: #10b981;
+            --pulang: #f97316;
+            --jemput: #0ea5e9;
             --error: #ef4444;
             --warning: #f59e0b;
+            --dark-bg: #0f172a;
         }
+        
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
         body { 
-            margin: 0; background: #0f172a; color: white; 
-            font-family: 'Segoe UI', system-ui, sans-serif; 
+            margin: 0; background: var(--dark-bg); color: white; 
+            font-family: 'Inter', 'Segoe UI', sans-serif; 
             display: flex; flex-direction: column; align-items: center; 
             height: 100vh; overflow: hidden; 
         }
 
-        .scanner-container {
-            position: relative; width: 100%; flex: 1;
-            display: flex; align-items: center; justify-content: center;
+        /* Container utama dibatasi agar tidak terlalu lebar di Desktop */
+        .main-wrapper {
+            width: 100%;
+            max-width: 500px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
             background: #000;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
         }
-        #video { width: 100%; height: 100%; object-fit: cover; }
+
+        .scanner-container {
+            position: relative; 
+            width: 100%; 
+            flex: 1;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        #video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+        }
 
         .overlay {
             position: absolute; inset: 0;
-            border: 0px solid transparent; transition: all 0.3s;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             pointer-events: none;
+            transition: background 0.3s ease;
         }
+
         .scan-box {
-            width: 260px; height: 260px; border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 20px; position: relative;
+            width: 280px; height: 280px; 
+            border: 2px solid rgba(255,255,255,0.4);
+            border-radius: 30px; position: relative;
+            box-shadow: 0 0 0 4000px rgba(0,0,0,0.5); /* Efek lubang intip */
         }
+
+        /* Sudut Box */
+        .corner {
+            position: absolute; width: 40px; height: 40px;
+            border: 4px solid var(--primary);
+        }
+        .tl { top: -2px; left: -2px; border-right: 0; border-bottom: 0; border-radius: 25px 0 0 0; }
+        .tr { top: -2px; right: -2px; border-left: 0; border-bottom: 0; border-radius: 0 25px 0 0; }
+        .bl { bottom: -2px; left: -2px; border-right: 0; border-top: 0; border-radius: 0 0 0 25px; }
+        .br { bottom: -2px; right: -2px; border-left: 0; border-top: 0; border-radius: 0 0 25px 0; }
+
         .scan-line {
-            position: absolute; width: 100%; height: 2px;
-            background: var(--primary); top: 0; box-shadow: 0 0 15px var(--primary);
-            animation: moveScan 2s infinite linear;
+            position: absolute; width: 90%; left: 5%; height: 2px;
+            background: var(--primary); top: 10%; 
+            box-shadow: 0 0 15px var(--primary);
+            animation: moveScan 2.5s infinite ease-in-out;
         }
+
         @keyframes moveScan {
-            0% { top: 0; } 50% { top: 100%; } 100% { top: 0; }
+            0%, 100% { top: 10%; opacity: 0.3; }
+            50% { top: 90%; opacity: 1; }
         }
 
-        .flash-success { background: rgba(16, 185, 129, 0.2); box-shadow: inset 0 0 50px var(--success); }
-        .flash-error { background: rgba(239, 68, 68, 0.2); box-shadow: inset 0 0 50px var(--error); }
+        /* Feedback Flash */
+        .flash-success { background: rgba(16, 185, 129, 0.3); }
+        .flash-error { background: rgba(239, 68, 68, 0.3); }
 
+        /* Panel UI Bawah */
         .ui-panel {
-            width: 100%; background: #1e293b; padding: 20px;
-            border-radius: 25px 25px 0 0; text-align: center;
-            box-shadow: 0 -5px 20px rgba(0,0,0,0.5); z-index: 10;
+            width: 100%; background: #1e293b; padding: 25px;
+            border-radius: 30px 30px 0 0; text-align: center;
+            z-index: 10; border-top: 1px solid rgba(255,255,255,0.1);
         }
-        #status { font-weight: bold; font-size: 1.2rem; color: var(--primary); margin-bottom: 5px; }
-        #detail { font-size: 0.9rem; color: #94a3b8; min-height: 1.2rem; }
 
-        .btn-group { display: flex; gap: 10px; margin-top: 15px; width: 100%; }
-        button { 
-            flex: 1; padding: 12px; border-radius: 12px; border: none; 
-            font-weight: bold; cursor: pointer; font-size: 0.8rem;
-            background: #334155; color: white; transition: 0.2s;
+        #status { font-weight: 800; font-size: 1.3rem; color: var(--primary); margin-bottom: 4px; letter-spacing: 0.5px; }
+        #detail { font-size: 0.95rem; color: #94a3b8; min-height: 1.4rem; font-weight: 500; }
+
+        /* Notifikasi Hasil */
+        #result-toast {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 15px;
+            display: none;
+            animation: slideUp 0.3s ease-out;
         }
-        button.primary { background: var(--primary); }
-        button:active { transform: scale(0.95); }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .toast-datang { background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); }
+        .toast-pulang { background: rgba(249, 115, 22, 0.2); border: 1px solid var(--pulang); color: var(--pulang); }
+        .toast-jemput { background: rgba(14, 165, 233, 0.2); border: 1px solid var(--jemput); color: var(--jemput); }
+        .toast-error { background: rgba(239, 68, 68, 0.2); border: 1px solid var(--error); color: var(--error); }
+
+        .btn-group { display: flex; gap: 12px; margin-top: 20px; width: 100%; }
+        button { 
+            flex: 1; padding: 14px; border-radius: 14px; border: none; 
+            font-weight: 700; cursor: pointer; font-size: 0.85rem;
+            background: #334155; color: white; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        button.primary { background: var(--primary); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); }
+        button:active { transform: scale(0.95); opacity: 0.8; }
+
+        /* Icon pulsate */
+        .dot { width: 8px; height: 8px; background: var(--primary); border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <div class="scanner-container">
-        <video id="video"></video>
-        <div class="overlay" id="overlay">
-            <div class="scan-box">
-                <div class="scan-line"></div>
+    <div class="main-wrapper">
+        <div class="scanner-container">
+            <video id="video"></video>
+            <div class="overlay" id="overlay">
+                <div class="scan-box">
+                    <div class="corner tl"></div><div class="corner tr"></div>
+                    <div class="corner bl"></div><div class="corner br"></div>
+                    <div class="scan-line"></div>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="ui-panel">
-        <div id="status">Menginisialisasi...</div>
-        <div id="detail">Mohon tunggu sebentar</div>
-        
-        <div class="btn-group">
-            <button onclick="switchCamera()">🔄 Ganti Kamera</button>
-            <button onclick="location.reload()">Reset</button>
-            <button class="primary" onclick="window.close()">Tutup</button>
+        <div class="ui-panel">
+            <div id="status"><span class="dot"></span> Menunggu...</div>
+            <div id="detail">Arahkan kamera ke QR Code Siswa</div>
+            
+            <!-- Area Notifikasi Spesifik -->
+            <div id="result-toast"></div>
+            
+            <div class="btn-group">
+                <button onclick="switchCamera()">🔄 Kamera</button>
+                <button onclick="location.reload()">Reset</button>
+                <button class="primary" onclick="window.close()">Tutup</button>
+            </div>
         </div>
     </div>
 
@@ -94,6 +167,7 @@
         const codeReader = new ZXing.BrowserQRCodeReader();
         const statusEl = document.getElementById('status');
         const detailEl = document.getElementById('detail');
+        const toastEl = document.getElementById('result-toast');
         const overlay = document.getElementById('overlay');
         
         let videoDevices = [];
@@ -102,18 +176,13 @@
 
         async function initCamera() {
             try {
-                // PERBAIKAN: Cara memanggil list devices yang benar
                 videoDevices = await codeReader.listVideoInputDevices();
+                if (videoDevices.length === 0) throw "Kamera tidak ditemukan";
                 
-                if (videoDevices.length === 0) {
-                    throw "Kamera tidak ditemukan";
-                }
-
-                // Pilih kamera belakang secara default (biasanya index terakhir di HP)
+                // Gunakan kamera belakang secara default
                 currentDeviceIndex = videoDevices.length > 1 ? 1 : 0;
                 startScanning();
             } catch (err) {
-                console.error(err);
                 statusEl.innerText = "Error Kamera";
                 statusEl.style.color = "var(--error)";
                 detailEl.innerText = err;
@@ -122,75 +191,89 @@
 
         function startScanning() {
             const selectedDeviceId = videoDevices[currentDeviceIndex].deviceId;
-            
             codeReader.decodeFromVideoDevice(selectedDeviceId, 'video', (result, err) => {
                 if (result && !isProcessing) {
                     handleDetectedQR(result.text);
                 }
             });
-            statusEl.innerText = "Siap Memindai";
-            detailEl.innerText = "Arahkan ke QR Code Siswa";
+            statusEl.innerHTML = '<span class="dot"></span> Siap Memindai';
+            statusEl.style.color = "var(--primary)";
         }
 
         function handleDetectedQR(nisn) {
             isProcessing = true;
             statusEl.innerText = "QR Terdeteksi";
             statusEl.style.color = "var(--warning)";
-            detailEl.innerText = "Mengirim data ke dashboard...";
+            detailEl.innerText = "Sedang memverifikasi...";
             
-            // Kirim data ke Aplikasi Utama (Google Apps Script)
-            if (window.opener) {
-                window.opener.postMessage({
-                    type: 'QR_SCAN_RESULT', // Main Scanner
-                    // Juga kirim tipe DH untuk kompatibilitas halaman Daftar Hadir Guru
-                    nisn: nisn.trim(),
-                    ts: Date.now()
-                }, "*");
-                
-                // Tambahan postMessage untuk halaman Daftar Hadir/Jemput
-                window.opener.postMessage({
-                    type: 'DH_QR_SCAN_RESULT', 
-                    nisn: nisn.trim(),
-                    ts: Date.now()
-                }, "*");
+            // Kirim ke parent (Google Apps Script)
+            const msgData = {
+                type: 'QR_SCAN_RESULT',
+                nisn: nisn.trim(),
+                ts: Date.now()
+            };
 
-            } else {
-                alert("Dashboard tidak terdeteksi. Harap buka melalui aplikasi.");
+            if (window.opener) {
+                window.opener.postMessage(msgData, "*");
+                // Untuk halaman Daftar Hadir / Jemput
+                window.opener.postMessage({...msgData, type: 'DH_QR_SCAN_RESULT'}, "*");
             }
 
-            // Lock scanner selama 3 detik untuk mencegah scan ganda sebelum respon
-            setTimeout(() => { isProcessing = false; }, 3000);
+            // Timeout otomatis jika tidak ada respon dari server dalam 5 detik
+            setTimeout(() => { if(isProcessing) isProcessing = false; }, 5000);
         }
 
-        // Listener untuk menerima feedback (berhasil/gagal) dari Apps Script
+        // Listener Feedback dari GAS
         window.addEventListener('message', (event) => {
             const data = event.data;
-            
-            // Cek tipe pesan feedback
+            if (!data.type) return;
+
             if (data.type === 'SCAN_SUCCESS' || data.type === 'DH_SCAN_SUCCESS') {
-                showFeedback('success', data.nama || 'Berhasil', data.message || 'Data tersimpan');
-            } else if (data.type === 'SCAN_ERROR' || data.type === 'DH_SCAN_ERROR' || data.type === 'SCAN_DUPLICATE') {
-                showFeedback('error', 'Ditolak', data.message || 'Gagal memproses');
+                // Deteksi tipe sukses dari response backend
+                // Sesuaikan property 'type' (datang/pulang) dari hasil return backend GAS Anda
+                let scanType = data.type_absensi || 'datang'; 
+                
+                // Cek isi pesan untuk menentukan status jemput/pulang
+                const msgLower = (data.message || '').toLowerCase();
+                if (msgLower.includes('jemput')) scanType = 'jemput';
+                else if (msgLower.includes('pulang')) scanType = 'pulang';
+                
+                showFeedback('success', data.nama || 'Berhasil', data.message || 'Tersimpan', scanType);
+            } 
+            else if (data.type === 'SCAN_ERROR' || data.type === 'DH_SCAN_ERROR' || data.type === 'SCAN_DUPLICATE') {
+                showFeedback('error', 'Gagal', data.message || 'Data ditolak', 'error');
             }
         });
 
-        function showFeedback(type, title, message) {
-            isProcessing = true; // Kunci sementara
-            playBeep(type);
+        function showFeedback(status, title, message, type) {
+            isProcessing = true;
+            playBeep(status);
             
+            // Warna Status
             statusEl.innerText = title;
-            statusEl.style.color = type === 'success' ? 'var(--success)' : 'var(--error)';
-            detailEl.innerText = message;
+            statusEl.style.color = status === 'success' ? 'var(--success)' : 'var(--error)';
+            detailEl.innerText = status === 'success' ? "Berhasil diproses" : "Silakan coba lagi";
             
-            overlay.classList.add(type === 'success' ? 'flash-success' : 'flash-error');
+            // Tampilkan Toast di bawah detail
+            toastEl.style.display = 'block';
+            toastEl.className = 'toast-' + type;
+            
+            let icon = '✅';
+            if (type === 'pulang') icon = '🏠';
+            if (type === 'jemput') icon = '👨‍👩‍👧';
+            if (status === 'error') icon = '❌';
+
+            toastEl.innerHTML = `<strong>${icon} ${message}</strong>`;
+            
+            // Efek Flash Layar
+            overlay.classList.add(status === 'success' ? 'flash-success' : 'flash-error');
             
             setTimeout(() => {
                 overlay.className = 'overlay';
-                statusEl.innerText = "Siap Memindai";
-                statusEl.style.color = "var(--primary)";
-                detailEl.innerText = "Arahkan ke QR Code Siswa";
-                isProcessing = false; // Buka kunci
-            }, 2500);
+                toastEl.style.display = 'none';
+                isProcessing = false;
+                startScanning();
+            }, 3000);
         }
 
         function playBeep(type) {
@@ -214,12 +297,9 @@
                 currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
                 codeReader.reset();
                 startScanning();
-            } else {
-                alert("Hanya ada satu kamera tersedia.");
             }
         }
 
-        // Jalankan inisialisasi
         document.addEventListener('DOMContentLoaded', initCamera);
     </script>
 </body>
