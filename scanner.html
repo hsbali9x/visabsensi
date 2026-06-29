@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Scanner Absensi - VIS-BALI</title>
+    <title>QR Scanner VIS-BALI</title>
     <!-- Library ZXing -->
     <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
     <style>
@@ -20,118 +20,120 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         body { 
-            margin: 0; background: var(--dark-bg); color: white; 
-            font-family: 'Inter', 'Segoe UI', sans-serif; 
-            display: flex; flex-direction: column; align-items: center; 
+            margin: 0; background: #000; color: white; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            display: flex; justify-content: center; 
             height: 100vh; overflow: hidden; 
         }
 
-        /* Container utama dibatasi agar tidak terlalu lebar di Desktop */
+        /* Container utama: Terpusat & Responsif */
         .main-wrapper {
             width: 100%;
-            max-width: 500px;
+            max-width: 480px; /* Batas lebar di layar besar/Desktop */
             height: 100%;
             display: flex;
             flex-direction: column;
+            background: var(--dark-bg);
             position: relative;
-            background: #000;
-            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            box-shadow: 0 0 40px rgba(0,0,0,0.8);
         }
 
         .scanner-container {
             position: relative; 
             width: 100%; 
             flex: 1;
+            background: #000;
             display: flex; 
             align-items: center; 
             justify-content: center;
             overflow: hidden;
         }
 
-        #video { 
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover; 
-        }
+        #video { width: 100%; height: 100%; object-fit: cover; }
 
+        /* Overlay Lubang Intip */
         .overlay {
             position: absolute; inset: 0;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             pointer-events: none;
-            transition: background 0.3s ease;
+            z-index: 5;
         }
 
         .scan-box {
-            width: 280px; height: 280px; 
-            border: 2px solid rgba(255,255,255,0.4);
-            border-radius: 30px; position: relative;
-            box-shadow: 0 0 0 4000px rgba(0,0,0,0.5); /* Efek lubang intip */
+            width: 260px; height: 260px; 
+            border-radius: 35px; position: relative;
+            box-shadow: 0 0 0 4000px rgba(0,0,0,0.6); /* Area luar kotak gelap */
+            border: 2px solid rgba(255,255,255,0.2);
         }
 
-        /* Sudut Box */
+        /* Bingkai Sudut Kotak */
         .corner {
-            position: absolute; width: 40px; height: 40px;
+            position: absolute; width: 45px; height: 45px;
             border: 4px solid var(--primary);
+            transition: border-color 0.3s;
         }
-        .tl { top: -2px; left: -2px; border-right: 0; border-bottom: 0; border-radius: 25px 0 0 0; }
-        .tr { top: -2px; right: -2px; border-left: 0; border-bottom: 0; border-radius: 0 25px 0 0; }
-        .bl { bottom: -2px; left: -2px; border-right: 0; border-top: 0; border-radius: 0 0 0 25px; }
-        .br { bottom: -2px; right: -2px; border-left: 0; border-top: 0; border-radius: 0 0 25px 0; }
+        .tl { top: -2px; left: -2px; border-right: 0; border-bottom: 0; border-radius: 28px 0 0 0; }
+        .tr { top: -2px; right: -2px; border-left: 0; border-bottom: 0; border-radius: 0 28px 0 0; }
+        .bl { bottom: -2px; left: -2px; border-right: 0; border-top: 0; border-radius: 0 0 0 28px; }
+        .br { bottom: -2px; right: -2px; border-left: 0; border-top: 0; border-radius: 0 0 28px 0; }
 
+        /* Animasi Garis Scan */
         .scan-line {
-            position: absolute; width: 90%; left: 5%; height: 2px;
+            position: absolute; width: 90%; left: 5%; height: 3px;
             background: var(--primary); top: 10%; 
             box-shadow: 0 0 15px var(--primary);
+            border-radius: 50%;
             animation: moveScan 2.5s infinite ease-in-out;
         }
 
         @keyframes moveScan {
-            0%, 100% { top: 10%; opacity: 0.3; }
+            0%, 100% { top: 10%; opacity: 0.2; }
             50% { top: 90%; opacity: 1; }
         }
 
-        /* Feedback Flash */
-        .flash-success { background: rgba(16, 185, 129, 0.3); }
-        .flash-error { background: rgba(239, 68, 68, 0.3); }
+        /* Feedback Flash Layar */
+        .flash-success { background: rgba(16, 185, 129, 0.25); }
+        .flash-error { background: rgba(239, 68, 68, 0.25); }
 
-        /* Panel UI Bawah */
+        /* Panel Kontrol Bawah */
         .ui-panel {
-            width: 100%; background: #1e293b; padding: 25px;
-            border-radius: 30px 30px 0 0; text-align: center;
+            width: 100%; background: #1e293b; padding: 20px 25px 35px;
+            border-radius: 35px 35px 0 0; text-align: center;
             z-index: 10; border-top: 1px solid rgba(255,255,255,0.1);
         }
 
-        #status { font-weight: 800; font-size: 1.3rem; color: var(--primary); margin-bottom: 4px; letter-spacing: 0.5px; }
-        #detail { font-size: 0.95rem; color: #94a3b8; min-height: 1.4rem; font-weight: 500; }
+        #status { font-weight: 800; font-size: 1.2rem; color: var(--primary); margin-bottom: 4px; }
+        #detail { font-size: 0.9rem; color: #94a3b8; min-height: 1.2rem; }
 
-        /* Notifikasi Hasil */
+        /* Toast Notifikasi Hasil */
         #result-toast {
             margin-top: 15px;
-            padding: 12px;
-            border-radius: 15px;
+            padding: 14px;
+            border-radius: 18px;
             display: none;
+            font-weight: 700;
+            font-size: 0.9rem;
             animation: slideUp 0.3s ease-out;
         }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(15px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-        .toast-datang { background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: var(--success); }
-        .toast-pulang { background: rgba(249, 115, 22, 0.2); border: 1px solid var(--pulang); color: var(--pulang); }
-        .toast-jemput { background: rgba(14, 165, 233, 0.2); border: 1px solid var(--jemput); color: var(--jemput); }
-        .toast-error { background: rgba(239, 68, 68, 0.2); border: 1px solid var(--error); color: var(--error); }
+        .toast-datang { background: rgba(16, 185, 129, 0.15); border: 1px solid var(--success); color: var(--success); }
+        .toast-pulang { background: rgba(249, 115, 22, 0.15); border: 1px solid var(--pulang); color: var(--pulang); }
+        .toast-jemput { background: rgba(14, 165, 233, 0.15); border: 1px solid var(--jemput); color: var(--jemput); }
+        .toast-error { background: rgba(239, 68, 68, 0.15); border: 1px solid var(--error); color: var(--error); }
 
-        .btn-group { display: flex; gap: 12px; margin-top: 20px; width: 100%; }
+        .btn-group { display: flex; gap: 12px; margin-top: 20px; }
         button { 
-            flex: 1; padding: 14px; border-radius: 14px; border: none; 
-            font-weight: 700; cursor: pointer; font-size: 0.85rem;
+            flex: 1; padding: 15px; border-radius: 16px; border: none; 
+            font-weight: 700; cursor: pointer; font-size: 0.8rem;
             background: #334155; color: white; transition: 0.2s;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
+            text-transform: uppercase; letter-spacing: 0.5px;
         }
         button.primary { background: var(--primary); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); }
-        button:active { transform: scale(0.95); opacity: 0.8; }
+        button:active { transform: scale(0.95); opacity: 0.9; }
 
-        /* Icon pulsate */
-        .dot { width: 8px; height: 8px; background: var(--primary); border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
+        .pulse-dot { width: 8px; height: 8px; background: var(--primary); border-radius: 50%; display: inline-block; margin-right: 5px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.6); opacity: 0.4; } 100% { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
@@ -140,7 +142,7 @@
         <div class="scanner-container">
             <video id="video"></video>
             <div class="overlay" id="overlay">
-                <div class="scan-box">
+                <div class="scan-box" id="scan-box">
                     <div class="corner tl"></div><div class="corner tr"></div>
                     <div class="corner bl"></div><div class="corner br"></div>
                     <div class="scan-line"></div>
@@ -149,10 +151,10 @@
         </div>
 
         <div class="ui-panel">
-            <div id="status"><span class="dot"></span> Menunggu...</div>
+            <div id="status"><span class="pulse-dot"></span> MENUNGGU...</div>
             <div id="detail">Arahkan kamera ke QR Code Siswa</div>
             
-            <!-- Area Notifikasi Spesifik -->
+            <!-- Toast Hasil Verifikasi -->
             <div id="result-toast"></div>
             
             <div class="btn-group">
@@ -169,6 +171,7 @@
         const detailEl = document.getElementById('detail');
         const toastEl = document.getElementById('result-toast');
         const overlay = document.getElementById('overlay');
+        const corners = document.querySelectorAll('.corner');
         
         let videoDevices = [];
         let currentDeviceIndex = 0;
@@ -179,11 +182,11 @@
                 videoDevices = await codeReader.listVideoInputDevices();
                 if (videoDevices.length === 0) throw "Kamera tidak ditemukan";
                 
-                // Gunakan kamera belakang secara default
+                // Gunakan kamera belakang jika ada
                 currentDeviceIndex = videoDevices.length > 1 ? 1 : 0;
                 startScanning();
             } catch (err) {
-                statusEl.innerText = "Error Kamera";
+                statusEl.innerText = "ERROR KAMERA";
                 statusEl.style.color = "var(--error)";
                 detailEl.innerText = err;
             }
@@ -196,52 +199,60 @@
                     handleDetectedQR(result.text);
                 }
             });
-            statusEl.innerHTML = '<span class="dot"></span> Siap Memindai';
+            statusEl.innerHTML = '<span class="pulse-dot"></span> SIAP MEMINDAI';
             statusEl.style.color = "var(--primary)";
+            detailEl.innerText = "Arahkan kamera ke QR Code Siswa";
+            updateCornerColor('var(--primary)');
         }
 
         function handleDetectedQR(nisn) {
-            isProcessing = true;
-            statusEl.innerText = "QR Terdeteksi";
-            statusEl.style.color = "var(--warning)";
-            detailEl.innerText = "Sedang memverifikasi...";
+            if (isProcessing) return;
+            isProcessing = true; 
             
-            // Kirim ke parent (Google Apps Script)
+            statusEl.innerText = "QR TERDETEKSI";
+            statusEl.style.color = "var(--warning)";
+            detailEl.innerText = "Sedang memverifikasi data...";
+            updateCornerColor('var(--warning)');
+            
             const msgData = {
                 type: 'QR_SCAN_RESULT',
                 nisn: nisn.trim(),
                 ts: Date.now()
             };
 
+            // Kirim ke Sistem Utama
             if (window.opener) {
                 window.opener.postMessage(msgData, "*");
-                // Untuk halaman Daftar Hadir / Jemput
                 window.opener.postMessage({...msgData, type: 'DH_QR_SCAN_RESULT'}, "*");
             }
 
-            // Timeout otomatis jika tidak ada respon dari server dalam 5 detik
-            setTimeout(() => { if(isProcessing) isProcessing = false; }, 5000);
+            // FAILSAFE: Jika sistem tidak merespon dalam 6 detik, reset kamera
+            setTimeout(() => { 
+                if(isProcessing) {
+                    isProcessing = false;
+                    startScanning();
+                }
+            }, 6000);
         }
 
-        // Listener Feedback dari GAS
+        // Menerima Jawaban dari Sistem Utama (Google Apps Script)
         window.addEventListener('message', (event) => {
             const data = event.data;
             if (!data.type) return;
 
+            // Jika Respon Sukses (Datang / Pulang / Jemput)
             if (data.type === 'SCAN_SUCCESS' || data.type === 'DH_SCAN_SUCCESS') {
-                // Deteksi tipe sukses dari response backend
-                // Sesuaikan property 'type' (datang/pulang) dari hasil return backend GAS Anda
-                let scanType = data.type_absensi || 'datang'; 
-                
-                // Cek isi pesan untuk menentukan status jemput/pulang
+                let scanType = 'datang';
                 const msgLower = (data.message || '').toLowerCase();
+                
                 if (msgLower.includes('jemput')) scanType = 'jemput';
                 else if (msgLower.includes('pulang')) scanType = 'pulang';
                 
-                showFeedback('success', data.nama || 'Berhasil', data.message || 'Tersimpan', scanType);
+                showFeedback('success', data.nama || 'BERHASIL', data.message || 'Data Tersimpan', scanType);
             } 
+            // Jika Respon Gagal (Sudah dijemput / Duplikat / Error Server)
             else if (data.type === 'SCAN_ERROR' || data.type === 'DH_SCAN_ERROR' || data.type === 'SCAN_DUPLICATE') {
-                showFeedback('error', 'Gagal', data.message || 'Data ditolak', 'error');
+                showFeedback('error', 'DITOLAK', data.message || 'Gagal Memproses', 'error');
             }
         });
 
@@ -249,31 +260,34 @@
             isProcessing = true;
             playBeep(status);
             
-            // Warna Status
             statusEl.innerText = title;
             statusEl.style.color = status === 'success' ? 'var(--success)' : 'var(--error)';
-            detailEl.innerText = status === 'success' ? "Berhasil diproses" : "Silakan coba lagi";
+            detailEl.innerText = status === 'success' ? "Data Verifikasi Cocok" : "Verifikasi Gagal";
+            updateCornerColor(status === 'success' ? 'var(--success)' : 'var(--error)');
             
-            // Tampilkan Toast di bawah detail
+            // Tampilkan Notifikasi Toast
             toastEl.style.display = 'block';
-            toastEl.className = 'toast-' + type;
+            toastEl.className = 'toast-' + (status === 'success' ? type : 'error');
             
             let icon = '✅';
             if (type === 'pulang') icon = '🏠';
             if (type === 'jemput') icon = '👨‍👩‍👧';
-            if (status === 'error') icon = '❌';
+            if (status === 'error') icon = '⚠️';
 
-            toastEl.innerHTML = `<strong>${icon} ${message}</strong>`;
-            
-            // Efek Flash Layar
+            toastEl.innerHTML = `<span>${icon} ${message}</span>`;
             overlay.classList.add(status === 'success' ? 'flash-success' : 'flash-error');
             
+            // Tampilkan hasil selama 3 detik, lalu scan lagi
             setTimeout(() => {
                 overlay.className = 'overlay';
                 toastEl.style.display = 'none';
                 isProcessing = false;
                 startScanning();
             }, 3000);
+        }
+
+        function updateCornerColor(color) {
+            corners.forEach(c => c.style.borderColor = color);
         }
 
         function playBeep(type) {
